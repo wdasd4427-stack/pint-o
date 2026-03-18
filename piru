@@ -1,142 +1,275 @@
--- StarterPlayer.StarterPlayerScripts.ChakraUIClient
+-- StarterPlayer.StarterPlayerScripts.VillageClient
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local remoteEvents = ReplicatedStorage:WaitForChild("VillageRemoteEvents")
 local updateChakraEvent = remoteEvents:WaitForChild("UpdateChakra")
-local updateBoxEvent = remoteEvents:WaitForChild("UpdateBox")
+local updatePlayerListEvent = remoteEvents:WaitForChild("UpdatePlayerList")
 
--- Função para criar UI adicional no cliente
-local function createPlayerUI()
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "VillageUI"
-    screenGui.Parent = player.PlayerGui
+-- Variáveis para a UI
+local screenGui
+local playerListFrame
+local playerButtons = {}
+
+-- Função para criar a interface principal
+local function createMainUI()
+    -- Verificar se já existe
+    if screenGui then
+        screenGui:Destroy()
+    end
     
-    -- Criar frame para mostrar todos os jogadores
-    local playerListFrame = Instance.new("Frame")
+    screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "VillageUI"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+    
+    -- Frame da lista de jogadores
+    playerListFrame = Instance.new("Frame")
     playerListFrame.Name = "PlayerListFrame"
-    playerListFrame.Size = UDim2.new(0, 250, 0, 400)
-    playerListFrame.Position = UDim2.new(0, 10, 0.5, -200)
-    playerListFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    playerListFrame.BackgroundTransparency = 0.3
+    playerListFrame.Size = UDim2.new(0, 280, 0, 450)
+    playerListFrame.Position = UDim2.new(0, 20, 0.5, -225)
+    playerListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    playerListFrame.BackgroundTransparency = 0.1
     playerListFrame.BorderSizePixel = 0
     playerListFrame.Parent = screenGui
     
+    -- Sombra
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://1316045217"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(10, 10, 118, 118)
+    shadow.Parent = playerListFrame
+    
     -- Arredondar bordas
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = playerListFrame
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 15)
+    corner.Parent = playerListFrame
     
     -- Título
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, 0, 0, 30)
-    titleLabel.Position = UDim2.new(0, 0, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Jogadores Online"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.TextScaled = true
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.Parent = playerListFrame
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 50)
+    titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = playerListFrame
     
-    -- ScrollingFrame para lista de jogadores
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 15)
+    titleCorner.Parent = titleBar
+    
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -20, 1, 0)
+    title.Position = UDim2.new(0, 10, 0, 0)
+    title.BackgroundTransparency = 1
+    title.Text = "👥 JOGADORES ONLINE"
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextScaled = true
+    title.Font = Enum.Font.GothamBold
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = titleBar
+    
+    -- Separador
+    local separator = Instance.new("Frame")
+    separator.Size = UDim2.new(1, -20, 0, 2)
+    separator.Position = UDim2.new(0, 10, 0, 50)
+    separator.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    separator.BackgroundTransparency = 0.7
+    separator.BorderSizePixel = 0
+    separator.Parent = playerListFrame
+    
+    -- ScrollingFrame para a lista
     local scrollingFrame = Instance.new("ScrollingFrame")
-    scrollingFrame.Size = UDim2.new(1, 0, 1, -35)
-    scrollingFrame.Position = UDim2.new(0, 0, 0, 35)
+    scrollingFrame.Name = "ScrollingFrame"
+    scrollingFrame.Size = UDim2.new(1, -20, 1, -70)
+    scrollingFrame.Position = UDim2.new(0, 10, 0, 60)
     scrollingFrame.BackgroundTransparency = 1
     scrollingFrame.BorderSizePixel = 0
     scrollingFrame.ScrollBarThickness = 5
+    scrollingFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+    scrollingFrame.ScrollBarImageTransparency = 0.5
     scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollingFrame.Parent = playerListFrame
     
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Padding = UDim.new(0, 5)
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    UIListLayout.Parent = scrollingFrame
+    -- Layout da lista
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = UDim.new(0, 8)
+    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    listLayout.SortOrder = Enum.SortOrder.Name
+    listLayout.Parent = scrollingFrame
     
-    -- Atualizar lista de jogadores
-    local function updatePlayerList()
-        -- Limpar lista atual
-        for _, child in pairs(scrollingFrame:GetChildren()) do
-            if child:IsA("Frame") then
-                child:Destroy()
-            end
-        end
-        
-        -- Adicionar todos os jogadores
-        for _, otherPlayer in pairs(Players:GetPlayers()) do
-            local playerFrame = Instance.new("Frame")
-            playerFrame.Size = UDim2.new(0.9, 0, 0, 40)
-            playerFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-            playerFrame.BackgroundTransparency = 0.2
-            playerFrame.BorderSizePixel = 0
-            playerFrame.Parent = scrollingFrame
-            
-            local playerName = Instance.new("TextLabel")
-            playerName.Size = UDim2.new(0.6, 0, 1, 0)
-            playerName.Position = UDim2.new(0, 5, 0, 0)
-            playerName.BackgroundTransparency = 1
-            playerName.Text = otherPlayer.Name
-            playerName.TextColor3 = Color3.fromRGB(255, 255, 255)
-            playerName.TextXAlignment = Enum.TextXAlignment.Left
-            playerName.TextScaled = true
-            playerName.Font = Enum.Font.Gotham
-            playerName.Parent = playerFrame
-            
-            local teamColor = otherPlayer:FindFirstChild("TeamColor")
-            local colorDisplay = Instance.new("Frame")
-            colorDisplay.Size = UDim2.new(0, 20, 0, 20)
-            colorDisplay.Position = UDim2.new(0.7, 0, 0.5, -10)
-            colorDisplay.BackgroundColor3 = teamColor and teamColor.Value or Color3.fromRGB(255, 255, 255)
-            colorDisplay.BorderSizePixel = 0
-            colorDisplay.Parent = playerFrame
-            
-            -- Arredondar cor
-            local corner = Instance.new("UICorner")
-            corner.CornerRadius = UDim.new(0, 5)
-            corner.Parent = colorDisplay
-            
-            local chakraText = Instance.new("TextLabel")
-            chakraText.Size = UDim2.new(0.2, 0, 1, 0)
-            chakraText.Position = UDim2.new(0.8, 0, 0, 0)
-            chakraText.BackgroundTransparency = 1
-            chakraText.Text = "100"
-            chakraText.TextColor3 = Color3.fromRGB(0, 255, 0)
-            chakraText.TextScaled = true
-            chakraText.Font = Enum.Font.GothamBold
-            chakraText.Parent = playerFrame
-            
-            -- Atualizar chakra quando mudar
-            if otherPlayer ~= player then
-                updateChakraEvent.OnClientEvent:Connect(function(updatedPlayer, chakraValue)
-                    if updatedPlayer == otherPlayer then
-                        chakraText.Text = tostring(chakraValue)
-                    end
-                end)
-            end
-        end
-        
-        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, UIListLayout.AbsoluteContentSize.Y)
-    end
-    
-    -- Atualizar quando jogadores entrarem/saírem
-    Players.PlayerAdded:Connect(updatePlayerList)
-    Players.PlayerRemoving:Connect(updatePlayerList)
-    
-    -- Atualização inicial
-    updatePlayerList()
+    -- Atualizar canvas size quando o layout mudar
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+    end)
 end
 
--- Quando o jogador estiver pronto
+-- Função para criar um item de jogador na lista
+local function createPlayerItem(playerData, parent)
+    local frame = Instance.new("Frame")
+    frame.Name = "PlayerItem_" .. playerData.UserId
+    frame.Size = UDim2.new(0.95, 0, 0, 70)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    
+    -- Arredondar bordas
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = frame
+    
+    -- Avatar
+    local avatarSize = 50
+    local avatarFrame = Instance.new("Frame")
+    avatarFrame.Size = UDim2.new(0, avatarSize, 0, avatarSize)
+    avatarFrame.Position = UDim2.new(0, 10, 0.5, -avatarSize/2)
+    avatarFrame.BackgroundColor3 = playerData.TeamColor
+    avatarFrame.BackgroundTransparency = 0.3
+    avatarFrame.BorderSizePixel = 0
+    avatarFrame.Parent = frame
+    
+    local avatarCorner = Instance.new("UICorner")
+    avatarCorner.CornerRadius = UDim.new(1, 0)
+    avatarCorner.Parent = avatarFrame
+    
+    -- Imagem do avatar (thumbnail)
+    local thumbnail = Instance.new("ImageLabel")
+    thumbnail.Size = UDim2.new(1, -4, 1, -4)
+    thumbnail.Position = UDim2.new(0, 2, 0, 2)
+    thumbnail.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    thumbnail.BackgroundTransparency = 1
+    thumbnail.Image = "rbxthumb://type=AvatarHeadShot&id=" .. playerData.UserId .. "&w=48&h=48"
+    thumbnail.Parent = avatarFrame
+    
+    local thumbCorner = Instance.new("UICorner")
+    thumbCorner.CornerRadius = UDim.new(1, 0)
+    thumbCorner.Parent = thumbnail
+    
+    -- Nome do jogador
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0, 120, 0, 25)
+    nameLabel.Position = UDim2.new(0, 70, 0, 10)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = playerData.DisplayName or playerData.Name
+    nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    nameLabel.Parent = frame
+    
+    -- Vila
+    local villageLabel = Instance.new("TextLabel")
+    villageLabel.Size = UDim2.new(0, 120, 0, 20)
+    villageLabel.Position = UDim2.new(0, 70, 0, 35)
+    villageLabel.BackgroundTransparency = 1
+    villageLabel.Text = "🏘️ " .. playerData.VillageName
+    villageLabel.TextColor3 = playerData.TeamColor
+    villageLabel.TextScaled = true
+    villageLabel.Font = Enum.Font.Gotham
+    villageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    villageLabel.Parent = frame
+    
+    -- Barra de chakra
+    local chakraBg = Instance.new("Frame")
+    chakraBg.Size = UDim2.new(0, 100, 0, 15)
+    chakraBg.Position = UDim2.new(0, 160, 0, 45)
+    chakraBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+    chakraBg.BorderSizePixel = 0
+    chakraBg.Parent = frame
+    
+    local chakraFill = Instance.new("Frame")
+    chakraFill.Name = "ChakraFill"
+    chakraFill.Size = UDim2.new(playerData.Chakra/100, 0, 1, 0)
+    chakraFill.BackgroundColor3 = playerData.TeamColor
+    chakraFill.BorderSizePixel = 0
+    chakraFill.Parent = chakraBg
+    
+    local chakraText = Instance.new("TextLabel")
+    chakraText.Size = UDim2.new(0, 40, 0, 15)
+    chakraText.Position = UDim2.new(0, 265, 0, 45)
+    chakraText.BackgroundTransparency = 1
+    chakraText.Text = math.floor(playerData.Chakra) .. "%"
+    chakraText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    chakraText.TextScaled = true
+    chakraText.Font = Enum.Font.Gotham
+    chakraText.Parent = frame
+    
+    -- Salvar referências para atualização
+    playerButtons[playerData.UserId] = {
+        Frame = frame,
+        ChakraFill = chakraFill,
+        ChakraText = chakraText
+    }
+    
+    return frame
+end
+
+-- Função para atualizar a lista de jogadores
+local function updatePlayerList(playersData)
+    -- Verificar se a UI existe
+    if not screenGui or not screenGui.Parent then
+        createMainUI()
+    end
+    
+    local scrollingFrame = playerListFrame:FindFirstChild("ScrollingFrame")
+    if not scrollingFrame then return end
+    
+    -- Limpar lista atual (manter apenas o layout)
+    for _, child in pairs(scrollingFrame:GetChildren()) do
+        if child:IsA("Frame") and child.Name ~= "UIListLayout" then
+            child:Destroy()
+        end
+    end
+    
+    -- Limpar referências
+    playerButtons = {}
+    
+    -- Adicionar todos os jogadores
+    for _, data in ipairs(playersData) do
+        createPlayerItem(data, scrollingFrame)
+    end
+end
+
+-- Função para atualizar chakra de um jogador
+local function updatePlayerChakra(updatedPlayer, chakraValue)
+    local userId = updatedPlayer.UserId
+    
+    if playerButtons[userId] then
+        local chakraFill = playerButtons[userId].ChakraFill
+        local chakraText = playerButtons[userId].ChakraText
+        
+        if chakraFill then
+            chakraFill.Size = UDim2.new(chakraValue/100, 0, 1, 0)
+        end
+        
+        if chakraText then
+            chakraText.Text = math.floor(chakraValue) .. "%"
+        end
+    end
+end
+
+-- Conectar eventos
+updatePlayerListEvent.OnClientEvent:Connect(updatePlayerList)
+updateChakraEvent.OnClientEvent:Connect(updatePlayerChakra)
+
+-- Criar UI quando o jogador estiver pronto
 player.CharacterAdded:Connect(function()
-    wait(1)
-    createPlayerUI()
+    task.wait(1)
+    createMainUI()
 end)
 
 if player.Character then
-    createPlayerUI()
+    createMainUI()
 end
 
-print("Cliente UI carregado!")
+print("✅ Cliente Village carregado!")
